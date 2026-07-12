@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+:root {
+  /* Cyber: Charcoal, Emerald, Amber - Dark Mode (Default) */
+  --color-primary: #22c55e; /* Green-500 */
+  --color-primary-alpha-5: rgba(34, 197, 94, 0.05);
+  --color-primary-alpha-10: rgba(34, 197, 94, 0.1);
+  --color-primary-alpha-20: rgba(34, 197, 94, 0.2);
+  --color-primary-alpha-30: rgba(34, 197, 94, 0.3);
+  --color-primary-alpha-40: rgba(34, 197, 94, 0.4);
+  --color-primary-alpha-50: rgba(34, 197, 94, 0.5);
+
+  --color-secondary: #f59e0b; /* Amber-500 */
+  --color-secondary-alpha-5: rgba(245, 158, 11, 0.05);
+  --color-secondary-alpha-10: rgba(245, 158, 11, 0.1);
+  --color-secondary-alpha-20: rgba(245, 158, 11, 0.2);
+  --color-secondary-alpha-30: rgba(245, 158, 11, 0.3);
+  --color-secondary-alpha-40: rgba(245, 158, 11, 0.4);
+  --color-secondary-alpha-50: rgba(245, 158, 11, 0.5);
+
+  --color-tertiary: #ef4444; /* Red-500 */
+  --color-tertiary-alpha-10: rgba(239, 68, 68, 0.1);
+  --color-tertiary-alpha-20: rgba(239, 68, 68, 0.2);
+  --color-tertiary-alpha-30: rgba(239, 68, 68, 0.3);
+  
+  --color-bg-base: #18181b; /* Zinc 900 - dark charcoal */
+  --color-bg-card: rgba(39, 39, 42, 0.6); /* Zinc 800 glass */
+  --color-bg-hover: rgba(255, 255, 255, 0.05);
+  --color-bg-active: rgba(255, 255, 255, 0.1);
+  --color-bg-active-hover: rgba(255, 255, 255, 0.15);
+  
+  --color-text-main: #f4f4f5; /* Zinc 50 */
+  --color-text-muted: #a1a1aa; /* Zinc 400 */
+  --color-border-glass: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="light"] {
+  /* Cyber: Zinc, Emerald, Amber - Light Mode */
+  --color-primary: #16a34a; /* Green-600 */
+  --color-primary-alpha-5: rgba(22, 163, 74, 0.05);
+  --color-primary-alpha-10: rgba(22, 163, 74, 0.1);
+  --color-primary-alpha-20: rgba(22, 163, 74, 0.2);
+  --color-primary-alpha-30: rgba(22, 163, 74, 0.3);
+  --color-primary-alpha-40: rgba(22, 163, 74, 0.4);
+  --color-primary-alpha-50: rgba(22, 163, 74, 0.5);
+
+  --color-secondary: #d97706; /* Amber-600 */
+  --color-secondary-alpha-5: rgba(217, 119, 6, 0.05);
+  --color-secondary-alpha-10: rgba(217, 119, 6, 0.1);
+  --color-secondary-alpha-20: rgba(217, 119, 6, 0.2);
+  --color-secondary-alpha-30: rgba(217, 119, 6, 0.3);
+  --color-secondary-alpha-40: rgba(217, 119, 6, 0.4);
+  --color-secondary-alpha-50: rgba(217, 119, 6, 0.5);
+
+  --color-tertiary: #dc2626; /* Red-600 */
+  --color-tertiary-alpha-10: rgba(220, 38, 38, 0.1);
+  --color-tertiary-alpha-20: rgba(220, 38, 38, 0.2);
+  --color-tertiary-alpha-30: rgba(220, 38, 38, 0.3);
+
+  --color-bg-base: #f4f4f5; /* Zinc 100 */
+  --color-bg-card: rgba(255, 255, 255, 0.9);
+  --color-bg-hover: rgba(0, 0, 0, 0.03);
+  --color-bg-active: rgba(0, 0, 0, 0.06);
+  --color-bg-active-hover: rgba(0, 0, 0, 0.1);
+  
+  --color-text-main: #18181b; /* Zinc 900 */
+  --color-text-muted: #52525b; /* Zinc 500 */
+  --color-border-glass: rgba(0, 0, 0, 0.1);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-main);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background-color: var(--color-bg-card);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border-glass);
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+  
+  .custom-shadow-primary {
+    box-shadow: 0 0 10px var(--color-primary-alpha-30), inset 0 0 10px var(--color-primary-alpha-10);
+  }
+  
+  .custom-text-shadow-primary {
+    text-shadow: 0 0 10px var(--color-primary-alpha-50);
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--color-border-glass);
+    border-radius: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+  }
+}
