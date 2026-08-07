@@ -1,45 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { BrainCircuit, Crosshair, AlertTriangle, Fingerprint, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const INITIAL_INTEL = [
-  {
-    id: 1,
-    classification: 'SQL Injection',
-    confidence: 98,
-    mitreId: 'T1190',
-    mitreName: 'Exploit Public-Facing Application',
-    severity: 'Critical',
-    pattern: 'Automated scanner followed by manual union-based injection attempts.',
-    recommendation: 'Update WAF rules to block signature. Patch vulnerable input fields on legacy portal.',
-  },
-  {
-    id: 2,
-    classification: 'Credential Stuffing',
-    confidence: 92,
-    mitreId: 'T1110.004',
-    mitreName: 'Brute Force: Credential Stuffing',
-    severity: 'High',
-    pattern: 'Distributed IPs attempting logins using known leaked credential pairs.',
-    recommendation: 'Enforce rate limiting on authentication endpoints. Require MFA for affected accounts.',
-  },
-  {
-    id: 3,
-    classification: 'Reconnaissance',
-    confidence: 85,
-    mitreId: 'T1595.001',
-    mitreName: 'Active Scanning: Scanning IP Blocks',
-    severity: 'Medium',
-    pattern: 'Sequential port knocking and service banner grabbing across subnet.',
-    recommendation: 'Ignore or route to deep-interaction honeypot to waste attacker resources.',
-  }
-];
+import axios from 'axios';
+import { io } from 'socket.io-client';
+import { AuthContext } from '../context/AuthContext';
 
 const AiThreatIntel = () => {
-  const [intelList, setIntelList] = useState(INITIAL_INTEL);
+  const { token } = useContext(AuthContext) || {};
+  const [intelList, setIntelList] = useState<any[]>([]);
 
-  const handleAction = (id: number) => {
-    setIntelList(prev => prev.filter(item => item.id !== id));
+  useEffect(() => {
+    const fetchIntel = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/threat-intel', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setIntelList(res.data.filter((i: any) => i.status === 'Active') || []);
+      } catch (err) {
+        console.error('Failed to fetch threat intel', err);
+      }
+    };
+    if (token) fetchIntel();
+
+    const socket = io('http://localhost:3001');
+    socket.on('intel:new', (newIntel) => {
+      if (newIntel.status === 'Active') {
+        setIntelList(prev => [newIntel, ...prev]);
+      }
+    });
+
+    socket.on('intel:updated', (updatedIntel) => {
+      if (updatedIntel.status !== 'Active') {
+         setIntelList(prev => prev.filter(item => item._id !== updatedIntel._id));
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token]);
+
+  const handleAction = async (id: string, action: string) => {
+    try {
+      await axios.patch(`http://localhost:3001/api/threat-intel/${id}`, 
+        { status: action }, 
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+      setIntelList(prev => prev.filter(item => item._id !== id));
+    } catch (err) {
+      console.error('Failed to update intel status', err);
+    }
   };
 
   return (
@@ -59,7 +69,7 @@ const AiThreatIntel = () => {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ delay: idx * 0.05 }}
-              key={intel.id} 
+              key={intel._id} 
               className="glass-panel p-6 border-l-4 border-l-[var(--color-secondary)]"
             >
               <div className="flex justify-between items-start mb-6">
@@ -107,13 +117,13 @@ const AiThreatIntel = () => {
               
               <div className="mt-6 flex justify-end gap-3">
                 <button 
-                  onClick={() => handleAction(intel.id)}
+                  onClick={() => handleAction(intel._id, 'Dismissed')}
                   className="px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] hover:bg-[var(--color-bg-hover)] rounded transition-colors"
                 >
                   Dismiss
                 </button>
                 <button 
-                  onClick={() => handleAction(intel.id)}
+                  onClick={() => handleAction(intel._id, 'Mitigated')}
                   className="px-4 py-2 text-sm bg-[var(--color-primary-alpha-10)] border border-[var(--color-primary-alpha-30)] text-[var(--color-primary)] hover:bg-[var(--color-primary-alpha-20)] rounded transition-colors"
                 >
                   Apply Mitigation

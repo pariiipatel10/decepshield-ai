@@ -1,42 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Server, Play, Square, Trash2, Plus, Terminal, X, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-const MOCK_HONEYPOTS = [
-  { id: 1, name: 'Fake SSH Server', type: 'SSH', port: 22, status: 'Running', attacks: 1240 },
-  { id: 2, name: 'Legacy FTP', type: 'FTP', port: 21, status: 'Stopped', attacks: 0 },
-  { id: 3, name: 'Admin Portal', type: 'HTTP', port: 8080, status: 'Running', attacks: 5832 },
-  { id: 4, name: 'Vulnerable DB', type: 'MySQL', port: 3306, status: 'Running', attacks: 892 },
-];
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
 const Honeypots = () => {
-  const [honeypots, setHoneypots] = useState(MOCK_HONEYPOTS);
+  const { token } = useContext(AuthContext) || {};
+  const [honeypots, setHoneypots] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newHp, setNewHp] = useState({ name: '', type: 'SSH', port: '22' });
 
-  const toggleStatus = (id: number) => {
-    setHoneypots(honeypots.map(hp => 
-      hp.id === id ? { ...hp, status: hp.status === 'Running' ? 'Stopped' : 'Running' } : hp
-    ));
-  };
-
-  const deleteHoneypot = (id: number) => {
-    setHoneypots(honeypots.filter(hp => hp.id !== id));
-  };
-
-  const deployHoneypot = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newEntry = {
-      id: Date.now(),
-      name: newHp.name || `Fake ${newHp.type} Service`,
-      type: newHp.type,
-      port: parseInt(newHp.port) || 0,
-      status: 'Running',
-      attacks: 0
+  useEffect(() => {
+    const fetchHoneypots = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/honeypots', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setHoneypots(res.data);
+      } catch (err) {
+        console.error('Failed to fetch honeypots:', err);
+      }
     };
-    setHoneypots([...honeypots, newEntry]);
-    setIsModalOpen(false);
-    setNewHp({ name: '', type: 'SSH', port: '22' });
+    if (token) fetchHoneypots();
+  }, [token]);
+
+  const toggleStatus = async (id: string) => {
+    const hp = honeypots.find((h: any) => h._id === id);
+    if (!hp) return;
+    const newStatus = hp.status === 'Running' ? 'Stopped' : 'Running';
+    try {
+      await axios.patch(`http://localhost:3001/api/honeypots/${id}/status`, { status: newStatus }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setHoneypots(honeypots.map((h: any) => 
+        h._id === id ? { ...h, status: newStatus } : h
+      ));
+    } catch (err) {
+      console.error('Failed to toggle status:', err);
+    }
+  };
+
+  const deleteHoneypot = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:3001/api/honeypots/${id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setHoneypots(honeypots.filter((hp: any) => hp._id !== id));
+    } catch (err) {
+      console.error('Failed to delete honeypot:', err);
+    }
+  };
+
+  const deployHoneypot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('http://localhost:3001/api/honeypots', {
+        name: newHp.name || `Fake ${newHp.type} Service`,
+        type: newHp.type,
+        port: parseInt(newHp.port) || 0,
+        status: 'Running',
+        attacks: 0
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setHoneypots([res.data, ...honeypots]);
+      setIsModalOpen(false);
+      setNewHp({ name: '', type: 'SSH', port: '22' });
+    } catch (err) {
+      console.error('Failed to deploy honeypot:', err);
+    }
   };
 
   return (
@@ -64,7 +96,7 @@ const Honeypots = () => {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.2, delay: Math.min(idx * 0.05, 0.2) }}
-              key={hp.id} 
+              key={hp._id} 
               className="glass-panel p-6 relative overflow-hidden group border-[var(--color-border-glass)] border hover:border-[var(--color-primary-alpha-30)] transition-colors"
             >
               <div className={`absolute top-0 left-0 w-full h-1 ${hp.status === 'Running' ? 'bg-green-500 shadow-[0_0_10px_#22c55e]' : 'bg-[var(--color-tertiary)]'}`}></div>
@@ -91,7 +123,7 @@ const Honeypots = () => {
 
               <div className="flex gap-2">
                 <button 
-                  onClick={() => toggleStatus(hp.id)}
+                  onClick={() => toggleStatus(hp._id)}
                   className={`flex-1 py-2 rounded-md flex items-center justify-center gap-2 text-sm font-medium transition-colors border ${
                     hp.status === 'Running'
                       ? 'border-[var(--color-tertiary-alpha-30)] hover:bg-[var(--color-tertiary-alpha-20)] text-[var(--color-tertiary)]'
@@ -109,7 +141,7 @@ const Honeypots = () => {
                 </button>
 
                 <button 
-                  onClick={() => deleteHoneypot(hp.id)}
+                  onClick={() => deleteHoneypot(hp._id)}
                   className="w-10 h-10 rounded-md border border-[var(--color-tertiary-alpha-30)] flex items-center justify-center text-[var(--color-tertiary)] hover:bg-[var(--color-tertiary-alpha-20)] hover:text-white transition-colors"
                 >
                   <Trash2 size={16} />

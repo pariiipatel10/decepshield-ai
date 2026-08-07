@@ -111,3 +111,50 @@
     background: var(--color-text-muted);
   }
 }
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  .hide-on-print {
+    display: none !important;
+  }
+  .print-header {
+    display: block !important;
+  }
+  .glass-panel {
+    background: none !important;
+    backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .print-panel {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  table {
+    width: 100% !important;
+    border: 1px solid #ddd;
+  }
+  th, td {
+    border-bottom: 1px solid #ddd !important;
+    color: black !important;
+  }
+  .print-badge {
+    border: 1px solid #000 !important;
+    color: #000 !important;
+    background: none !important;
+  }
+  
+  /* Hide typical layout wrappers */
+  aside, nav, header {
+    display: none !important;
+  }
+  main, #root, .flex-1, .p-8 {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+}

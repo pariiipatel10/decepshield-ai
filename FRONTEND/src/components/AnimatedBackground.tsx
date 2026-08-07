@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 
 const AnimatedBackground = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -46,7 +46,7 @@ const AnimatedBackground = () => {
 
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255, 42, 133, 0.5)';
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.35)';
         ctx.fill();
 
         // Draw connections
@@ -60,7 +60,7 @@ const AnimatedBackground = () => {
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
             ctx.lineTo(p2.x, p2.y);
-            ctx.strokeStyle = `rgba(255, 42, 133, ${0.1 - distance / 1000})`;
+            ctx.strokeStyle = `rgba(34, 197, 94, ${0.08 - distance / 1400})`;
             ctx.stroke();
           }
         }

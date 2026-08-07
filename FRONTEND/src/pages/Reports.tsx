@@ -1,26 +1,55 @@
+import { useState, useEffect, useContext } from 'react';
 import { FileText, Download, BarChart2, Briefcase, BrainCircuit } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
-const MOCK_BAR_DATA = [
-  { name: 'SQLi', count: 420 },
-  { name: 'XSS', count: 380 },
-  { name: 'Brute Force', count: 850 },
-  { name: 'RCE', count: 120 },
-  { name: 'Path Trav.', count: 210 },
-];
-
-const MOCK_PIE_DATA = [
-  { name: 'Critical', value: 15, color: '#ef4444' }, // red-500
-  { name: 'High', value: 35, color: '#f97316' }, // orange-500
-  { name: 'Medium', value: 120, color: '#eab308' }, // yellow-500
-  { name: 'Low', value: 380, color: '#ff2a85' }, // neon-pink
-];
+const severityColors: Record<string, string> = {
+  'Critical': '#ef4444',
+  'High': '#f97316',
+  'Medium': '#eab308',
+  'Low': '#ff2a85'
+};
 
 const Reports = () => {
+  const { token } = useContext(AuthContext) || {};
+  const [barData, setBarData] = useState<any[]>([]);
+  const [pieData, setPieData] = useState<any[]>([]);
+  const [totalEvents, setTotalEvents] = useState(0);
+  const [keyFindings, setKeyFindings] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/reports', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setBarData(res.data.barData || []);
+        
+        const mappedPie = (res.data.pieData || []).map((item: any) => ({
+          ...item,
+          color: severityColors[item.name] || '#3b82f6'
+        }));
+        setPieData(mappedPie);
+
+        const total = mappedPie.reduce((acc: number, curr: any) => acc + curr.value, 0);
+        setTotalEvents(total);
+        setKeyFindings(res.data.keyFindings || []);
+      } catch (err) {
+        console.error('Failed to fetch reports:', err);
+      }
+    };
+    if (token) fetchReports();
+  }, [token]);
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6" id="reports-container">
+      <div className="flex justify-between items-center hide-on-print">
         <div>
           <h2 className="text-2xl font-bold text-[var(--color-text-main)] flex items-center gap-2">
             <FileText className="text-[var(--color-primary)]" /> Automated Reports
@@ -38,7 +67,10 @@ const Reports = () => {
           <p className="text-sm text-[var(--color-text-muted)] mb-6 flex-1">
             High-level overview of attack trends, risk exposure, and ROI of deceptive defenses for C-suite.
           </p>
-          <button className="w-full bg-[var(--color-primary-alpha-10)] border border-[var(--color-primary-alpha-30)] hover:bg-[var(--color-primary-alpha-20)] text-[var(--color-primary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+          <button 
+            onClick={handlePrintPDF}
+            className="w-full bg-[var(--color-primary-alpha-10)] border border-[var(--color-primary-alpha-30)] hover:bg-[var(--color-primary-alpha-20)] text-[var(--color-primary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors font-bold"
+          >
             <Download size={16} /> Generate PDF
           </button>
         </motion.div>
@@ -51,7 +83,10 @@ const Reports = () => {
           <p className="text-sm text-[var(--color-text-muted)] mb-6 flex-1">
             Detailed metrics on exploited CVEs, top attacker IPs, payloads used, and honeypot interaction logs.
           </p>
-          <button className="w-full bg-[var(--color-tertiary-alpha-10)] border border-[var(--color-tertiary-alpha-30)] hover:bg-[var(--color-tertiary-alpha-20)] text-[var(--color-tertiary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+          <button 
+            onClick={handlePrintPDF}
+            className="w-full bg-[var(--color-tertiary-alpha-10)] border border-[var(--color-tertiary-alpha-30)] hover:bg-[var(--color-tertiary-alpha-20)] text-[var(--color-tertiary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors font-bold"
+          >
             <Download size={16} /> Generate PDF
           </button>
         </motion.div>
@@ -64,14 +99,17 @@ const Reports = () => {
           <p className="text-sm text-[var(--color-text-muted)] mb-6 flex-1">
             STIX/TAXII compatible export of identified IOCs (Indicators of Compromise) and attacker TTPs.
           </p>
-          <button className="w-full bg-[var(--color-secondary-alpha-10)] border border-[var(--color-secondary-alpha-30)] hover:bg-[var(--color-secondary-alpha-20)] text-[var(--color-secondary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors">
+          <button 
+            onClick={() => alert("JSON export is disabled for demonstration purposes.")}
+            className="w-full bg-[var(--color-secondary-alpha-10)] border border-[var(--color-secondary-alpha-30)] hover:bg-[var(--color-secondary-alpha-20)] text-[var(--color-secondary)] px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors font-bold"
+          >
             <FileText size={16} /> Export JSON
           </button>
         </motion.div>
       </div>
 
-      <div className="glass-panel p-6 mt-8">
-        <div className="flex justify-between items-center mb-6">
+      <div className="glass-panel p-6 mt-8 print-panel">
+        <div className="flex justify-between items-center mb-6 hide-on-print">
           <h3 className="text-xl font-bold text-[var(--color-text-main)]">Report Preview: Q3 Threat Landscape</h3>
           <div className="flex gap-2">
             <button className="px-3 py-1 bg-[var(--color-bg-active)] hover:bg-[var(--color-bg-active-hover)] rounded text-xs text-[var(--color-text-main)] transition-colors">This Week</button>
@@ -90,7 +128,7 @@ const Reports = () => {
               <p className="text-[var(--color-secondary)] font-medium">Quarterly Threat Intelligence Report</p>
             </div>
             <div className="text-right">
-              <p className="text-[var(--color-text-main)] font-mono text-sm mb-1">Generated: 2026-07-12</p>
+              <p className="text-[var(--color-text-main)] font-mono text-sm mb-1">Generated: {new Date().toISOString().split('T')[0]}</p>
               <p className="text-[var(--color-tertiary)] font-mono text-xs border border-[var(--color-tertiary-alpha-30)] bg-[var(--color-tertiary-alpha-10)] px-2 py-1 rounded inline-block">CONFIDENTIAL</p>
             </div>
           </div>
@@ -102,7 +140,7 @@ const Reports = () => {
               </h4>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MOCK_BAR_DATA} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
+                  <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 30, left: 20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" horizontal={false} />
                     <XAxis type="number" stroke="rgba(255,255,255,0.5)" tick={{fill: 'rgba(255,255,255,0.5)', fontSize: 12}} />
                     <YAxis dataKey="name" type="category" stroke="rgba(255,255,255,0.5)" tick={{fill: 'rgba(255,255,255,0.8)', fontSize: 12}} width={80} />
@@ -110,7 +148,7 @@ const Reports = () => {
                       cursor={{fill: 'rgba(255,255,255,0.05)'}}
                       contentStyle={{ backgroundColor: 'rgba(20, 20, 30, 0.9)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}
                     />
-                    <Bar dataKey="count" fill="var(--color-neon-blue)" radius={[0, 4, 4, 0]} barSize={20} />
+                    <Bar dataKey="value" fill="var(--color-neon-blue)" radius={[0, 4, 4, 0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -124,7 +162,7 @@ const Reports = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={MOCK_PIE_DATA}
+                      data={pieData}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -132,7 +170,7 @@ const Reports = () => {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {MOCK_PIE_DATA.map((entry, index) => (
+                      {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
@@ -142,34 +180,32 @@ const Reports = () => {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none flex-col">
-                  <span className="text-2xl font-bold text-[var(--color-text-main)]">550</span>
+                  <span className="text-2xl font-bold text-[var(--color-text-main)]">{totalEvents}</span>
                   <span className="text-xs text-[var(--color-text-muted)]">Total Events</span>
                 </div>
               </div>
             </div>
           </div>
-          
           <div className="mt-8 border-t border-[var(--color-border-glass)] pt-6 relative z-10">
-             <h4 className="text-[var(--color-text-main)] font-bold mb-4">Key Findings</h4>
+             <h4 className="text-[var(--color-text-main)] font-bold mb-4 flex items-center gap-2">
+               <BrainCircuit size={18} className="text-[var(--color-primary)]" /> Real-Time Key Findings
+             </h4>
              <ul className="space-y-3">
-               <li className="flex gap-3">
-                 <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-tertiary)] mt-2 shrink-0"></div>
-                 <p className="text-sm text-[var(--color-text-muted)]">
-                   <strong className="text-[var(--color-text-main)]">Critical Spike in Credential Stuffing:</strong> We observed a 340% increase in distributed brute force attacks targeting the SSH honeypot originating from previously unknown botnet IPs.
-                 </p>
-               </li>
-               <li className="flex gap-3">
-                 <div className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-2 shrink-0"></div>
-                 <p className="text-sm text-[var(--color-text-muted)]">
-                   <strong className="text-[var(--color-text-main)]">Zero-Day Probing:</strong> Advanced persistent threats (APTs) attempted to exploit a simulated vulnerability in the legacy web portal, resulting in the successful capture of 3 novel payloads.
-                 </p>
-               </li>
-               <li className="flex gap-3">
-                 <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] mt-2 shrink-0"></div>
-                 <p className="text-sm text-[var(--color-text-muted)]">
-                   <strong className="text-[var(--color-text-main)]">Defense ROI:</strong> DecepShield successfully diverted 92% of automated scanning away from production assets, saving an estimated 14 hours of SOC analyst investigation time.
-                 </p>
-               </li>
+               {keyFindings.length > 0 ? (
+                 keyFindings.map((finding, idx) => (
+                   <li key={idx} className="flex gap-3">
+                     <div className={`w-1.5 h-1.5 rounded-full mt-2 shrink-0 ${idx === 0 ? 'bg-[var(--color-tertiary)]' : idx === 1 ? 'bg-[var(--color-secondary)]' : 'bg-[var(--color-primary)]'}`}></div>
+                     <p className="text-sm text-[var(--color-text-muted)]">
+                       <strong className="text-[var(--color-text-main)]">{finding.title}:</strong> {finding.description}
+                     </p>
+                   </li>
+                 ))
+               ) : (
+                 <li className="flex gap-3">
+                   <div className="w-1.5 h-1.5 rounded-full bg-gray-500 mt-2 shrink-0"></div>
+                   <p className="text-sm text-[var(--color-text-muted)]">No analytical findings yet.</p>
+                 </li>
+               )}
              </ul>
           </div>
         </div>

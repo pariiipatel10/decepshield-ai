@@ -1,13 +1,57 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Settings as SettingsIcon, Bell, Shield, Key, Moon, Sun, Save, Copy, Plus, Trash2 } from 'lucide-react';
+import axios from 'axios';
+import { AuthContext } from '../context/AuthContext';
 
 const Settings = () => {
+  const { token } = useContext(AuthContext) || {};
   const [activeTab, setActiveTab] = useState('notifications');
   const [apiKeys, setApiKeys] = useState([
     { id: 1, name: 'Production SIEM Integration', key: 'sk_live_9f8e7d...', lastUsed: '2 hours ago' },
     { id: 2, name: 'Dev Testing', key: 'sk_test_1a2b3c...', lastUsed: '3 days ago' }
   ]);
   const [theme, setTheme] = useState(document.documentElement.getAttribute('data-theme') || 'dark');
+
+  const [settings, setSettings] = useState({
+    notifications: {
+      criticalAlerts: true,
+      emailIntegration: true,
+      slackWebhook: ''
+    },
+    ai: {
+      autoTarpitting: true,
+      autoBlockIps: false,
+      confidenceThreshold: 85
+    }
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/settings', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data) {
+          setSettings(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch settings', err);
+      }
+    };
+    if (token) fetchSettings();
+  }, [token]);
+
+  const saveSettings = async () => {
+    try {
+      await axios.put('http://localhost:3001/api/settings', settings, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      alert('Settings saved successfully!');
+    } catch (err) {
+      console.error('Failed to save settings', err);
+      alert('Failed to save settings.');
+    }
+  };
 
   const toggleTheme = (newTheme: string) => {
     setTheme(newTheme);
@@ -16,6 +60,16 @@ const Settings = () => {
     } else {
       document.documentElement.removeAttribute('data-theme');
     }
+  };
+
+  const updateNestedSetting = (category: 'notifications' | 'ai', field: string, value: any) => {
+    setSettings({
+      ...settings,
+      [category]: {
+        ...settings[category],
+        [field]: value
+      }
+    });
   };
 
   return (
@@ -67,7 +121,12 @@ const Settings = () => {
                     <p className="text-sm text-[var(--color-text-muted)]">Immediate notification for severity &gt; 90</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={settings.notifications?.criticalAlerts || false} 
+                      onChange={(e) => updateNestedSetting('notifications', 'criticalAlerts', e.target.checked)}
+                    />
                     <div className="w-11 h-6 bg-[var(--color-bg-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                   </label>
                 </div>
@@ -78,18 +137,29 @@ const Settings = () => {
                     <p className="text-sm text-[var(--color-text-muted)]">Send daily summary reports</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={settings.notifications?.emailIntegration || false} 
+                      onChange={(e) => updateNestedSetting('notifications', 'emailIntegration', e.target.checked)}
+                    />
                     <div className="w-11 h-6 bg-[var(--color-bg-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                   </label>
                 </div>
                 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-[var(--color-text-main)]">Slack Webhook URL</label>
-                  <input type="text" className="w-full bg-[rgba(0,0,0,0.5)] border border-[var(--color-border-glass)] rounded-lg px-4 py-2 text-[var(--color-text-main)] focus:outline-none focus:border-[var(--color-neon-blue)] font-mono text-sm" placeholder="https://hooks.slack.com/services/..."/>
+                  <input 
+                    type="text" 
+                    value={settings.notifications?.slackWebhook || ''}
+                    onChange={(e) => updateNestedSetting('notifications', 'slackWebhook', e.target.value)}
+                    className="w-full bg-[rgba(0,0,0,0.5)] border border-[var(--color-border-glass)] rounded-lg px-4 py-2 text-[var(--color-text-main)] focus:outline-none focus:border-[var(--color-neon-blue)] font-mono text-sm" 
+                    placeholder="https://hooks.slack.com/services/..."
+                  />
                 </div>
               </div>
               
-              <button className="mt-8 bg-[var(--color-primary-alpha-10)] border border-[var(--color-primary-alpha-50)] hover:bg-[var(--color-primary-alpha-20)] text-[var(--color-primary)] px-6 py-2 rounded flex items-center gap-2 transition-colors">
+              <button onClick={saveSettings} className="mt-8 bg-[var(--color-primary-alpha-10)] border border-[var(--color-primary-alpha-50)] hover:bg-[var(--color-primary-alpha-20)] text-[var(--color-primary)] px-6 py-2 rounded flex items-center gap-2 transition-colors">
                 <Save size={16} /> Save Changes
               </button>
             </div>
@@ -107,7 +177,12 @@ const Settings = () => {
                     <p className="text-sm text-[var(--color-text-muted)]">Automatically slow down connections for identified scanners</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" defaultChecked />
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={settings.ai?.autoTarpitting || false}
+                      onChange={(e) => updateNestedSetting('ai', 'autoTarpitting', e.target.checked)}
+                    />
                     <div className="w-11 h-6 bg-[var(--color-bg-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-secondary)]"></div>
                   </label>
                 </div>
@@ -118,7 +193,12 @@ const Settings = () => {
                     <p className="text-sm text-[var(--color-text-muted)]">Update firewall rules automatically when confidence &gt; 95%</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" className="sr-only peer" />
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={settings.ai?.autoBlockIps || false}
+                      onChange={(e) => updateNestedSetting('ai', 'autoBlockIps', e.target.checked)}
+                    />
                     <div className="w-11 h-6 bg-[var(--color-bg-active)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-secondary)]"></div>
                   </label>
                 </div>
@@ -126,14 +206,22 @@ const Settings = () => {
 
               <div className="space-y-2 mt-4">
                 <label className="text-sm font-medium text-[var(--color-text-main)]">AI Confidence Threshold (%)</label>
-                <input type="range" min="50" max="100" defaultValue="85" className="w-full accent-[var(--color-neon-purple)]" />
+                <input 
+                  type="range" 
+                  min="50" 
+                  max="100" 
+                  value={settings.ai?.confidenceThreshold || 85} 
+                  onChange={(e) => updateNestedSetting('ai', 'confidenceThreshold', parseInt(e.target.value))}
+                  className="w-full accent-[var(--color-neon-purple)]" 
+                />
                 <div className="flex justify-between text-xs text-[var(--color-text-muted)]">
                   <span>50% (Aggressive)</span>
+                  <span>{settings.ai?.confidenceThreshold || 85}%</span>
                   <span>100% (Conservative)</span>
                 </div>
               </div>
               
-              <button className="mt-8 bg-[var(--color-secondary-alpha-10)] border border-[var(--color-secondary-alpha-50)] hover:bg-[var(--color-secondary-alpha-20)] text-[var(--color-secondary)] px-6 py-2 rounded flex items-center gap-2 transition-colors">
+              <button onClick={saveSettings} className="mt-8 bg-[var(--color-secondary-alpha-10)] border border-[var(--color-secondary-alpha-50)] hover:bg-[var(--color-secondary-alpha-20)] text-[var(--color-secondary)] px-6 py-2 rounded flex items-center gap-2 transition-colors">
                 <Save size={16} /> Save AI Rules
               </button>
             </div>

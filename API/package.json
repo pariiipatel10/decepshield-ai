@@ -7,13 +7,20 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@google/genai": "^2.13.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-session": "^1.19.0",
     "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
+    "mongodb-memory-server": "^11.2.0",
     "mongoose": "^9.7.4",
+    "passport": "^0.7.0",
+    "passport-discord": "^0.1.4",
+    "passport-github2": "^0.1.12",
+    "passport-google-oauth20": "^2.0.0",
     "socket.io": "^4.8.3",
     "ws": "^8.21.0"
   }

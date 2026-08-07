@@ -1,45 +1,46 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { Activity, Filter, Download } from 'lucide-react';
 import { format } from 'date-fns';
-
-// Minimal starting data
-const MOCK_LOGS = [
-  {
-    id: `log-init`,
-    timestamp: new Date().toISOString(),
-    sourceIp: `192.168.1.45`,
-    country: 'Unknown',
-    attackType: 'System Initialized',
-    protocol: 'SYSTEM',
-    riskScore: 0,
-  }
-];
+import axios from 'axios';
+import { io } from 'socket.io-client';
+import { AuthContext } from '../context/AuthContext';
 
 const LiveMonitor = () => {
-  const [logs, setLogs] = useState(MOCK_LOGS);
+  const { token } = useContext(AuthContext) || {};
+  const [logs, setLogs] = useState<any[]>([]);
 
-  // Simulate incoming real-time logs
   useEffect(() => {
-    const interval = setInterval(() => {
-      const newLog = {
-        id: `log-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        sourceIp: `10.0.0.${Math.floor(Math.random() * 255)}`,
-        country: ['RU', 'CN', 'US', 'BR', 'IR'][Math.floor(Math.random() * 5)],
-        attackType: ['SQL Injection', 'Brute Force', 'Port Scan', 'XSS'][Math.floor(Math.random() * 4)],
-        protocol: ['TCP', 'UDP', 'HTTP', 'SSH'][Math.floor(Math.random() * 4)],
-        riskScore: Math.floor(Math.random() * 100),
-      };
-      setLogs(prev => [newLog, ...prev].slice(0, 20)); // Keep minimal history
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    // 1. Fetch recent incidents
+    const fetchIncidents = async () => {
+      try {
+        const res = await axios.get('http://localhost:3001/api/incidents', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setLogs(res.data.incidents || []);
+      } catch (error) {
+        console.error('Failed to fetch initial incidents:', error);
+      }
+    };
+    
+    if (token) fetchIncidents();
 
-  const getRiskColor = (score: number) => {
-    if (score === 0) return 'text-[var(--color-primary)] bg-[var(--color-primary-alpha-10)] border-[var(--color-primary-alpha-30)]';
-    if (score >= 80) return 'text-[var(--color-tertiary)] bg-[var(--color-tertiary-alpha-10)] border-[var(--color-tertiary-alpha-20)]';
-    if (score >= 50) return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
-    return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+    // 2. Connect to Socket.IO for real-time updates
+    const socket = io('http://localhost:3001');
+    
+    socket.on('new_incident', (incident) => {
+      setLogs(prev => [incident, ...prev].slice(0, 50)); // Keep last 50
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token]);
+
+  const getRiskColor = (severity: string) => {
+    if (severity === 'Critical') return 'text-[var(--color-tertiary)] bg-[var(--color-tertiary-alpha-10)] border-[var(--color-tertiary-alpha-20)]';
+    if (severity === 'High') return 'text-orange-400 bg-orange-400/10 border-orange-400/20';
+    if (severity === 'Medium') return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+    return 'text-[var(--color-primary)] bg-[var(--color-primary-alpha-10)] border-[var(--color-primary-alpha-30)]';
   };
 
   return (
@@ -68,10 +69,9 @@ const LiveMonitor = () => {
               <tr className="border-b border-[var(--color-border-glass)] bg-[var(--color-bg-card)]">
                 <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">TIMESTAMP</th>
                 <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">SOURCE IP</th>
-                <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">GEO</th>
+                <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">TARGET</th>
                 <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">ATTACK TYPE</th>
-                <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">PROTOCOL</th>
-                <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">RISK SCORE</th>
+                <th className="p-4 font-medium text-[var(--color-text-muted)] text-sm whitespace-nowrap">SEVERITY</th>
               </tr>
             </thead>
           </table>
@@ -79,18 +79,23 @@ const LiveMonitor = () => {
         <div className="overflow-y-auto custom-scrollbar flex-1">
           <table className="w-full text-left border-collapse">
              <tbody>
-              {logs.map((log) => (
-                <tr key={log.id} className="border-b border-[var(--color-border-glass)] hover:bg-[var(--color-bg-hover)] transition-colors font-mono text-sm">
-                  <td className="p-4 text-[var(--color-text-muted)] whitespace-nowrap">
-                    {format(new Date(log.timestamp), 'HH:mm:ss.SSS')}
+              {logs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-[var(--color-text-muted)] italic">
+                    Waiting for real-time attacks... (Run the simulator script to see live data)
                   </td>
-                  <td className="p-4 text-[var(--color-text-main)] whitespace-nowrap">{log.sourceIp}</td>
-                  <td className="p-4 text-[var(--color-text-muted)]">{log.country}</td>
-                  <td className="p-4 text-[var(--color-secondary)] whitespace-nowrap">{log.attackType}</td>
-                  <td className="p-4 text-[var(--color-text-muted)]">{log.protocol}</td>
+                </tr>
+              ) : logs.map((log) => (
+                <tr key={log._id || log.id} className="border-b border-[var(--color-border-glass)] hover:bg-[var(--color-bg-hover)] transition-colors font-mono text-sm">
+                  <td className="p-4 text-[var(--color-text-muted)] whitespace-nowrap">
+                    {log.timestamp ? format(new Date(log.timestamp), 'HH:mm:ss.SSS') : 'N/A'}
+                  </td>
+                  <td className="p-4 text-[var(--color-text-main)] whitespace-nowrap">{log.ip}</td>
+                  <td className="p-4 text-[var(--color-text-muted)]">{log.target}</td>
+                  <td className="p-4 text-[var(--color-secondary)] whitespace-nowrap">{log.type}</td>
                   <td className="p-4">
-                    <span className={`px-2 py-1 rounded border ${getRiskColor(log.riskScore)}`}>
-                      {log.riskScore}
+                    <span className={`px-2 py-1 rounded border ${getRiskColor(log.severity)}`}>
+                      {log.severity}
                     </span>
                   </td>
                 </tr>

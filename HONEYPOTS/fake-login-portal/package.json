@@ -1,0 +1,14 @@
+{
+  "name": "fake-login-honeypot",
+  "version": "1.0.0",
+  "description": "A vulnerable honeypot portal for DecepShield AI",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "axios": "^1.7.2"
+  }
+}

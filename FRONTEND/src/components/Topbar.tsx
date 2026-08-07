@@ -1,16 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Bell, ShieldAlert, User, X } from 'lucide-react';
+import { useState, useContext } from 'react';
+import { Bell, ShieldAlert, User, X, LogOut } from 'lucide-react';
+import { AuthContext } from '../context/AuthContext';
 
 const TopBar = () => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const [role, setRole] = useState('SecOps Lead');
-
-  useEffect(() => {
-    const savedRole = localStorage.getItem('userRole');
-    if (savedRole) {
-      setRole(savedRole);
-    }
-  }, []);
+  const auth = useContext(AuthContext);
+  const role = auth?.user?.role || 'Security Analyst';
 
   return (
     <header className="h-20 glass-panel mt-4 mr-4 mb-4 ml-0 flex items-center justify-between px-8 relative z-20">
@@ -62,20 +57,21 @@ const TopBar = () => {
           </div>
         )}
 
-        <div className="flex items-center gap-3 pl-6 border-l border-[var(--color-border-glass)]">
+        <div className="flex items-center gap-4 pl-6 border-l border-[var(--color-border-glass)]">
           <div className="text-right hidden md:block">
-            <p className="text-sm font-medium text-[var(--color-text-main)]">{role}</p>
-            <p className="text-xs text-[var(--color-text-muted)]">Active Session</p>
+            <p className="text-sm font-medium text-[var(--color-text-main)]">{auth?.user?.email || 'User'}</p>
+            <p className="text-xs text-[var(--color-text-muted)]">{role}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-[var(--color-bg-active)] flex items-center justify-center border border-[var(--color-border-glass)] cursor-pointer hover:bg-[var(--color-bg-hover)] transition-colors" onClick={() => {
-            // cycle roles for testing
-            const roles = ['Administrator', 'SecOps Lead', 'Security Analyst'];
-            const next = roles[(roles.indexOf(role) + 1) % roles.length];
-            setRole(next);
-            localStorage.setItem('userRole', next);
-          }}>
+          <div className="w-10 h-10 rounded-full bg-[var(--color-bg-active)] flex items-center justify-center border border-[var(--color-border-glass)]">
             <User size={20} className="text-[var(--color-text-main)]" />
           </div>
+          <button 
+            onClick={() => auth?.logout()}
+            className="w-10 h-10 rounded-full bg-red-900/30 flex items-center justify-center border border-red-500/30 cursor-pointer hover:bg-red-900/50 hover:border-red-500/50 transition-colors ml-2"
+            title="Logout"
+          >
+            <LogOut size={18} className="text-red-400" />
+          </button>
         </div>
       </div>
     </header>
