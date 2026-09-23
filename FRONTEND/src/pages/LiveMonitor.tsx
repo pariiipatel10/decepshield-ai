@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { Activity, Filter, Download } from 'lucide-react';
 import { format } from 'date-fns';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../services/api';
 import { io } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
 
@@ -13,9 +13,7 @@ const LiveMonitor = () => {
     // 1. Fetch recent incidents
     const fetchIncidents = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/incidents', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/api/incidents');
         setLogs(res.data.incidents || []);
       } catch (error) {
         console.error('Failed to fetch initial incidents:', error);
@@ -25,7 +23,7 @@ const LiveMonitor = () => {
     if (token) fetchIncidents();
 
     // 2. Connect to Socket.IO for real-time updates
-    const socket = io('http://localhost:3001');
+    const socket = io(API_BASE_URL);
     
     socket.on('new_incident', (incident) => {
       setLogs(prev => [incident, ...prev].slice(0, 50)); // Keep last 50

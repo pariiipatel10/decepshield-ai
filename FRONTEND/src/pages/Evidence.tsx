@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { FileSearch, Download, FileText, Hash, Trash2, Plus, X } from 'lucide-react';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const Evidence = () => {
@@ -15,9 +15,7 @@ const Evidence = () => {
   // Fetch Evidence
   const fetchEvidence = async () => {
     try {
-      const res = await axios.get('http://localhost:3001/api/evidence', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const res = await api.get('/api/evidence');
       setEvidence(res.data);
     } catch (err) {
       console.error('Failed to fetch evidence:', err);
@@ -34,12 +32,10 @@ const Evidence = () => {
   const handleSubmitEvidence = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await axios.post('http://localhost:3001/api/evidence', {
+      await api.post('/api/evidence', {
         type: formData.type,
         name: formData.name || 'unnamed_artifact.log',
         size: formData.size || '0 KB'
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
       setShowForm(false);
       setFormData({ name: '', type: 'PCAP', size: '' });
@@ -52,9 +48,7 @@ const Evidence = () => {
   // Delete Evidence
   const handleDelete = async (id: string) => {
     try {
-      await axios.delete(`http://localhost:3001/api/evidence/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/api/evidence/${id}`);
       fetchEvidence(); // Refresh list
     } catch (err) {
       console.error('Failed to delete evidence:', err);

@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
-import { BrainCircuit, Crosshair, AlertTriangle, Fingerprint, ShieldCheck } from 'lucide-react';
+import { BrainCircuit, Crosshair, Fingerprint, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../services/api';
 import { io } from 'socket.io-client';
 import { AuthContext } from '../context/AuthContext';
 
@@ -12,9 +12,7 @@ const AiThreatIntel = () => {
   useEffect(() => {
     const fetchIntel = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/threat-intel', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/api/threat-intel');
         setIntelList(res.data.filter((i: any) => i.status === 'Active') || []);
       } catch (err) {
         console.error('Failed to fetch threat intel', err);
@@ -22,7 +20,7 @@ const AiThreatIntel = () => {
     };
     if (token) fetchIntel();
 
-    const socket = io('http://localhost:3001');
+    const socket = io(API_BASE_URL);
     socket.on('intel:new', (newIntel) => {
       if (newIntel.status === 'Active') {
         setIntelList(prev => [newIntel, ...prev]);
@@ -42,10 +40,8 @@ const AiThreatIntel = () => {
 
   const handleAction = async (id: string, action: string) => {
     try {
-      await axios.patch(`http://localhost:3001/api/threat-intel/${id}`, 
-        { status: action }, 
-        { headers: { Authorization: `Bearer ${token}` }}
-      );
+      await api.patch(`/api/threat-intel/${id}`, 
+        { status: action });
       setIntelList(prev => prev.filter(item => item._id !== id));
     } catch (err) {
       console.error('Failed to update intel status', err);

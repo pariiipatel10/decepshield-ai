@@ -4,6 +4,10 @@ const GitHubStrategy = require('passport-github2').Strategy;
 const DiscordStrategy = require('passport-discord').Strategy;
 const User = require('../models/User');
 
+// Base URL of this API server, used to build OAuth callback URLs. Defaults to
+// localhost for local dev; set BACKEND_URL in production (e.g. your Render URL).
+const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+
 passport.serializeUser((user, done) => {
   done(null, user.id);
 });
@@ -63,7 +67,7 @@ const handleOAuthLogin = async (provider, profile, done) => {
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'http://localhost:3001/api/auth/google/callback'
+    callbackURL: `${BACKEND_URL}/api/auth/google/callback`
   },
   (accessToken, refreshToken, profile, done) => handleOAuthLogin('google', profile, done)
 ));
@@ -72,7 +76,7 @@ passport.use(new GoogleStrategy({
 passport.use(new GitHubStrategy({
     clientID: process.env.GITHUB_CLIENT_ID,
     clientSecret: process.env.GITHUB_CLIENT_SECRET,
-    callbackURL: 'http://localhost:3001/api/auth/github/callback'
+    callbackURL: `${BACKEND_URL}/api/auth/github/callback`
   },
   (accessToken, refreshToken, profile, done) => handleOAuthLogin('github', profile, done)
 ));
@@ -81,7 +85,7 @@ passport.use(new GitHubStrategy({
 passport.use(new DiscordStrategy({
     clientID: process.env.DISCORD_CLIENT_ID,
     clientSecret: process.env.DISCORD_CLIENT_SECRET,
-    callbackURL: 'http://localhost:3001/api/auth/discord/callback',
+    callbackURL: `${BACKEND_URL}/api/auth/discord/callback`,
     scope: ['identify', 'email']
   },
   (accessToken, refreshToken, profile, done) => {

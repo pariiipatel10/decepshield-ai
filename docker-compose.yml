@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ./API
+    container_name: decepshield-api
+    ports:
+      - "3001:3001"
+      - "2222:2222" # Expose for dynamic SSH honeypot testing
+    environment:
+      - NODE_ENV=production
+      # Important: Since we use MongoMemoryServer, the DB resets on container restart.
+      # In a real production environment, you would use an external MongoDB URI here.
+    restart: always
+
+  frontend:
+    build:
+      context: ./FRONTEND
+    container_name: decepshield-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:3001 # Frontend accesses API via user's browser, so localhost works
+    depends_on:
+      - api
+    restart: always
+
+  fake-honeypot:
+    build:
+      context: ./HONEYPOTS/fake-login-portal
+    container_name: decepshield-fake-portal
+    ports:
+      - "8080:8080"
+    environment:
+      - API_URL=http://api:3001 # Internal docker networking
+    depends_on:
+      - api
+    restart: always

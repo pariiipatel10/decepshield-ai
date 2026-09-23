@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { ShieldAlert, Activity, Users, Server, ShieldOff, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const StatCard = ({ title, value, icon, color }: { title: string, value: string | number, icon: any, color: string }) => (
@@ -42,7 +42,7 @@ const Dashboard = () => {
       const randomSeverity = severities[Math.floor(Math.random() * severities.length)];
       const randomIP = `192.168.1.${Math.floor(Math.random() * 255)}`;
 
-      await axios.post('http://localhost:3001/api/incidents', {
+      await api.post('/api/incidents', {
         type: randomType,
         ip: randomIP,
         target: randomTarget,
@@ -56,18 +56,12 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const statsRes = await axios.get('http://localhost:3001/api/stats', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const hpRes = await axios.get('http://localhost:3001/api/honeypots', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const statsRes = await api.get('/api/stats');
+        const hpRes = await api.get('/api/honeypots');
         const activeCount = hpRes.data.filter((h: any) => h.status === 'Running').length;
         setStats({ ...statsRes.data, activeHoneypots: activeCount });
 
-        const incRes = await axios.get('http://localhost:3001/api/incidents', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const incRes = await api.get('/api/incidents');
         setIncidents(incRes.data.incidents || []);
         setChartData(incRes.data.chartData || []);
       } catch (error) {

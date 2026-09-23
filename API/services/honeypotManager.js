@@ -9,9 +9,14 @@ const activeServers = {};
  */
 const reportIncident = async (ip, target, attackType, severity) => {
   try {
-    await fetch('http://localhost:3001/api/incidents', {
+    await fetch(`http://localhost:${process.env.PORT || 3001}/api/incidents`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Proves this request came from our own honeypot listeners, not a
+        // random client hitting the ingestion endpoint directly.
+        'x-ingest-key': process.env.HONEYPOT_INGEST_KEY || '',
+      },
       body: JSON.stringify({
         type: attackType,
         ip: ip === '::1' || ip === '::ffff:127.0.0.1' ? '127.0.0.1' : ip,

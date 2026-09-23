@@ -11,11 +11,12 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 dotenv.config(); // Load environment variables FIRST
 
 const jwt = require('jsonwebtoken');
+const { body, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 const session = require('express-session');
 const passport = require('./config/passport');
-const { protect } = require('./middleware/auth');
+const { protect, protectOrIngestKey } = require('./middleware/auth');
 const User = require('./models/User');
 const Incident = require('./models/Incident');
 const Evidence = require('./models/Evidence');
@@ -27,12 +28,17 @@ const Settings = require('./models/Settings');
 const ApiKey = require('./models/ApiKey');
 
 const app = express();
-app.use(cors());
+
+// Frontend origin, used for CORS and for OAuth redirects back to the dashboard.
+// Defaults to the local Vite dev server; set FRONTEND_URL in production (e.g. your
+// Vercel URL).
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 
 // Session is required for some Passport strategies even if we use JWT later
 app.use(session({
-  secret: process.env.JWT_SECRET || 'fallback_secret',
+  secret: process.env.JWT_SECRET,
   resave: false,
   saveUninitialized: false
 }));
@@ -43,46 +49,60 @@ app.use(passport.session());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: FRONTEND_URL,
     methods: ["GET", "POST"]
   }
 });
 
-// Setup MongoDB Connection
-const connectDB = async () => {
+// Wire up MongoDB Change Streams -> Socket.io broadcasts. Works the same whether
+// we're connected to a real replica set (Atlas) or the local in-memory replica set.
+const attachChangeStreams = () => {
+  const AiThreatIntel = require('./models/AiThreatIntel');
+  const AttackerSession = require('./models/AttackerSession');
+
   try {
-    console.log('Setting up MongoDB Memory Server with Replica Set for local development...');
-    const mongoServer = await MongoMemoryServer.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
-    const mongoUri = mongoServer.getUri();
-    
-    await mongoose.connect(mongoUri).then(() => {
-      console.log('Connected to In-Memory MongoDB successfully!');
-
-      // Real-time MongoDB Change Streams (Handled for Local Dev)
-      const AiThreatIntel = require('./models/AiThreatIntel');
-      const AttackerSession = require('./models/AttackerSession');
-      const Incident = require('./models/Incident');
-
-      try {
-        const intelStream = AiThreatIntel.watch();
-        intelStream.on('change', (change) => {
-          if (change.operationType === 'insert') {
-            io.emit('intel:new', change.fullDocument);
-          }
-        });
-        intelStream.on('error', (err) => console.log('Intel Stream Error (expected if not Replica Set):', err.message));
-
-        const sessionStream = AttackerSession.watch();
-        sessionStream.on('change', (change) => {
-          if (change.operationType === 'insert' || change.operationType === 'update') {
-            io.emit('session:updated', change.fullDocument);
-          }
-        });
-        sessionStream.on('error', (err) => console.log('Session Stream Error (expected if not Replica Set):', err.message));
-      } catch (watchErr) {
-        console.log('MongoDB Change Streams skipped.');
+    const intelStream = AiThreatIntel.watch();
+    intelStream.on('change', (change) => {
+      if (change.operationType === 'insert') {
+        io.emit('intel:new', change.fullDocument);
       }
     });
+    intelStream.on('error', (err) => console.log('Intel Stream Error (expected if not Replica Set):', err.message));
+
+    const sessionStream = AttackerSession.watch();
+    sessionStream.on('change', (change) => {
+      if (change.operationType === 'insert' || change.operationType === 'update') {
+        io.emit('session:updated', change.fullDocument);
+      }
+    });
+    sessionStream.on('error', (err) => console.log('Session Stream Error (expected if not Replica Set):', err.message));
+  } catch (watchErr) {
+    console.log('MongoDB Change Streams skipped.');
+  }
+};
+
+// Setup MongoDB Connection. If MONGO_URI is set (e.g. a MongoDB Atlas connection
+// string), connect to that real, persistent database -- this is what production /
+// deployed environments should use. Otherwise fall back to an ephemeral in-memory
+// replica set for local development, matching the previous behaviour.
+const connectDB = async () => {
+  try {
+    if (process.env.MONGO_URI) {
+      console.log('Connecting to MongoDB via MONGO_URI...');
+      await mongoose.connect(process.env.MONGO_URI);
+      console.log('Connected to MongoDB (persistent) successfully!');
+      attachChangeStreams();
+      return;
+    }
+
+    console.log('MONGO_URI not set - starting an in-memory Replica Set for local development...');
+    console.log('(Data will NOT persist across restarts. Set MONGO_URI to a MongoDB Atlas connection string for a real deployment.)');
+    const mongoServer = await MongoMemoryServer.create({ replSet: { count: 1, storageEngine: 'wiredTiger' } });
+    const mongoUri = mongoServer.getUri();
+
+    await mongoose.connect(mongoUri);
+    console.log('Connected to In-Memory MongoDB successfully!');
+    attachChangeStreams();
   } catch (err) {
     console.error('Failed to connect to MongoDB:', err.message);
     process.exit(1);
@@ -94,15 +114,35 @@ connectDB();
 const generateToken = (user) => {
   return jwt.sign(
     { id: user._id, email: user.email, role: user.role, name: user.name, avatar: user.avatar },
-    process.env.JWT_SECRET || 'fallback_secret_key',
+    process.env.JWT_SECRET,
     { expiresIn: '30d' }
   );
 };
 
 // --- AUTH ROUTES --- //
 
+// Basic request validation for local auth. Keeps obviously bad input
+// (missing/malformed email, too-short password) from ever reaching the DB.
+const handleValidation = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: errors.array()[0].msg });
+  }
+  next();
+};
+
+const registerValidation = [
+  body('email').isEmail().withMessage('A valid email is required').normalizeEmail(),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+];
+
+const loginValidation = [
+  body('email').isEmail().withMessage('A valid email is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+];
+
 // Local Auth
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', registerValidation, handleValidation, async (req, res) => {
   const { email, password, role } = req.body;
   try {
     const userExists = await User.findOne({ email });
@@ -115,7 +155,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginValidation, handleValidation, async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
@@ -132,23 +172,23 @@ app.post('/api/auth/login', async (req, res) => {
 
 // OAuth Callback handler
 const handleOAuthRedirect = (req, res) => {
-  if (!req.user) return res.redirect('http://localhost:5173/?error=auth_failed');
+  if (!req.user) return res.redirect(`${FRONTEND_URL}/?error=auth_failed`);
   const token = generateToken(req.user);
   // Redirect to frontend with token in URL (Frontend will parse and store it)
-  res.redirect(`http://localhost:5173/?token=${token}`);
+  res.redirect(`${FRONTEND_URL}/?token=${token}`);
 };
 
 // Google OAuth
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
-app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: 'http://localhost:5173/?error=google_failed' }), handleOAuthRedirect);
+app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/?error=google_failed` }), handleOAuthRedirect);
 
 // GitHub OAuth
 app.get('/api/auth/github', passport.authenticate('github', { scope: ['user:email'] }));
-app.get('/api/auth/github/callback', passport.authenticate('github', { failureRedirect: 'http://localhost:5173/?error=github_failed' }), handleOAuthRedirect);
+app.get('/api/auth/github/callback', passport.authenticate('github', { failureRedirect: `${FRONTEND_URL}/?error=github_failed` }), handleOAuthRedirect);
 
 // Discord OAuth
 app.get('/api/auth/discord', passport.authenticate('discord'));
-app.get('/api/auth/discord/callback', passport.authenticate('discord', { failureRedirect: 'http://localhost:5173/?error=discord_failed' }), handleOAuthRedirect);
+app.get('/api/auth/discord/callback', passport.authenticate('discord', { failureRedirect: `${FRONTEND_URL}/?error=discord_failed` }), handleOAuthRedirect);
 
 
 // --- HONEYPOT ROUTES --- //
@@ -258,8 +298,10 @@ app.get('/api/incidents', protect, async (req, res) => {
   }
 });
 
-app.post('/api/incidents', async (req, res) => {
-  // Real endpoint for external honeypots to push data
+app.post('/api/incidents', protectOrIngestKey, async (req, res) => {
+  // Endpoint for real honeypot listeners (services/honeypotManager.js) and the
+  // dashboard's "Simulate Attack" demo button to push incident data. Guarded
+  // by protectOrIngestKey so it can't be hit by arbitrary internet traffic.
   const { type, ip, target, severity } = req.body;
   try {
     const newIncident = await Incident.create({ type, ip, target, severity });
@@ -267,9 +309,10 @@ app.post('/api/incidents', async (req, res) => {
     // Fetch updated stats to broadcast
     const totalAttacks = await Incident.countDocuments();
     const highRiskAlerts = await Incident.countDocuments({ severity: 'High' });
+    const activeAttackers = await AttackerSession.countDocuments();
     const threatScore = Math.min(100, Math.floor((highRiskAlerts / (totalAttacks || 1)) * 100) + 10);
 
-    const systemStats = { totalAttacks, activeAttackers: Math.floor(Math.random() * 5) + 1, highRiskAlerts, threatScore };
+    const systemStats = { totalAttacks, activeAttackers, highRiskAlerts, threatScore };
 
     io.emit('new_incident', newIncident);
     io.emit('stats_update', systemStats);

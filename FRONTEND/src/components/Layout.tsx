@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
-import TopBar from './TopBar';
+import Topbar from './Topbar';
 import AnimatedBackground from './AnimatedBackground';
 
 const Layout = () => {
@@ -15,7 +15,7 @@ const Layout = () => {
       
       {/* Main Content Area - offset by sidebar width */}
       <div className="flex-1 flex flex-col ml-64 pl-4 min-h-screen w-[calc(100vw-16rem)]">
-        <TopBar />
+        <Topbar />
         <main className="flex-1 pr-4 pb-4">
           <div className="glass-panel min-h-[calc(100vh-8rem)] p-6 mb-4">
             <Outlet />

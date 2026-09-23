@@ -1,21 +1,19 @@
 import { useState, useEffect, useContext } from 'react';
 import { Server, Play, Square, Trash2, Plus, Terminal, X, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const Honeypots = () => {
   const { token } = useContext(AuthContext) || {};
-  const [honeypots, setHoneypots] = useState([]);
+  const [honeypots, setHoneypots] = useState<any[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newHp, setNewHp] = useState({ name: '', type: 'SSH', port: '22' });
 
   useEffect(() => {
     const fetchHoneypots = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/honeypots', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/api/honeypots');
         setHoneypots(res.data);
       } catch (err) {
         console.error('Failed to fetch honeypots:', err);
@@ -29,9 +27,7 @@ const Honeypots = () => {
     if (!hp) return;
     const newStatus = hp.status === 'Running' ? 'Stopped' : 'Running';
     try {
-      await axios.patch(`http://localhost:3001/api/honeypots/${id}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.patch(`/api/honeypots/${id}/status`, { status: newStatus });
       setHoneypots(honeypots.map((h: any) => 
         h._id === id ? { ...h, status: newStatus } : h
       ));
@@ -42,9 +38,7 @@ const Honeypots = () => {
 
   const deleteHoneypot = async (id: string) => {
     try {
-      await axios.delete(`http://localhost:3001/api/honeypots/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.delete(`/api/honeypots/${id}`);
       setHoneypots(honeypots.filter((hp: any) => hp._id !== id));
     } catch (err) {
       console.error('Failed to delete honeypot:', err);
@@ -54,14 +48,12 @@ const Honeypots = () => {
   const deployHoneypot = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:3001/api/honeypots', {
+      const res = await api.post('/api/honeypots', {
         name: newHp.name || `Fake ${newHp.type} Service`,
         type: newHp.type,
         port: parseInt(newHp.port) || 0,
         status: 'Running',
         attacks: 0
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
       });
       setHoneypots([res.data, ...honeypots]);
       setIsModalOpen(false);

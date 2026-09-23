@@ -29,7 +29,8 @@ app.post('/login', async (req, res) => {
 
   // 1. Secretly forward this attack telemetry to the DecepShield AI Backend
   try {
-    await axios.post('http://localhost:3001/api/incidents', {
+    const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    await axios.post(`${apiUrl}/api/incidents`, {
       type: attackType,
       ip: attackerIp === '::1' ? '192.168.1.105' : attackerIp, // mock IP if localhost
       target: 'Fake Employee Portal (Port 8080)',

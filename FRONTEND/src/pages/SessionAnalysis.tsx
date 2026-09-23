@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Terminal, Code, Cpu, Database, Network } from 'lucide-react';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const SessionAnalysis = () => {
@@ -11,17 +11,13 @@ const SessionAnalysis = () => {
   useEffect(() => {
     const fetchSessionData = async () => {
       try {
-        const sessionsRes = await axios.get('http://localhost:3001/api/sessions', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const sessionsRes = await api.get('/api/sessions');
         
         if (sessionsRes.data.length > 0) {
           const session = sessionsRes.data[0];
           setActiveSession(session);
           
-          const terminalRes = await axios.get(`http://localhost:3001/api/sessions/${session.sessionId}/terminal`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+          const terminalRes = await api.get(`/api/sessions/${session.sessionId}/terminal`);
           setTerminalLogs(terminalRes.data);
         }
       } catch (err) {

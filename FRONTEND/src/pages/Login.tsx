@@ -1,14 +1,13 @@
 import { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ShieldAlert, Lock, Mail, ArrowRight, Shield, UserPlus, LogIn,
-  CheckSquare, Square, X, Eye, EyeOff,
+  CheckSquare, Square, Eye, EyeOff,
   Radar, FileSearch, BarChart3, Zap, Database, Network
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import AnimatedBackground from '../components/AnimatedBackground';
 import { AuthContext } from '../context/AuthContext';
-import axios from 'axios';
+import api, { API_BASE_URL } from '../services/api';
 
 /* ─── SSO Provider Config ─── */
 const SSO_PROVIDERS = [
@@ -89,7 +88,6 @@ const Login = () => {
   const [success, setSuccess] = useState('');
 
   const auth = useContext(AuthContext);
-  const navigate = useNavigate();
 
   // Load saved email credentials on mount
   useEffect(() => {
@@ -119,14 +117,14 @@ const Login = () => {
       }
 
       if (isRegistering) {
-        await axios.post('http://localhost:3001/api/auth/register', { email, password, role });
+        await api.post('/api/auth/register', { email, password, role });
         setSuccess('Registration successful! Logging you in…');
-        const loginRes = await axios.post('http://localhost:3001/api/auth/login', { email, password });
+        const loginRes = await api.post('/api/auth/login', { email, password });
         if (loginRes.data?.token && auth) {
           setTimeout(() => auth.login(loginRes.data.user, loginRes.data.token), 1000);
         }
       } else {
-        const response = await axios.post('http://localhost:3001/api/auth/login', { email, password });
+        const response = await api.post('/api/auth/login', { email, password });
         if (response.data?.token && auth) {
           auth.login(response.data.user, response.data.token);
         }
@@ -141,7 +139,7 @@ const Login = () => {
   /* ─── SSO Click (Redirect to Backend OAuth) ─── */
   const handleSSOClick = (provider: typeof SSO_PROVIDERS[0]) => {
     // Redirect to the real OAuth route
-    window.location.href = `http://localhost:3001/api/auth/${provider.id.toLowerCase()}`;
+    window.location.href = `${API_BASE_URL}/api/auth/${provider.id.toLowerCase()}`;
   };
 
   /* ═══════════════════════════ RENDER ═══════════════════════════ */

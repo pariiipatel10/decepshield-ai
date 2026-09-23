@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import { Footprints, Search, Radar, Unlock, Database, FastForward, ShieldOff } from 'lucide-react';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const STAGE_ORDER = ['recon', 'scanning', 'enumeration', 'exploitation', 'persistence', 'privilege', 'exfiltration'];
@@ -34,9 +34,7 @@ const AttackerJourney = () => {
   useEffect(() => {
     const fetchSessions = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/sessions', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/api/sessions');
         setSessions(res.data);
         if (res.data.length > 0) {
           setActiveSessionId(res.data[0].sessionId);

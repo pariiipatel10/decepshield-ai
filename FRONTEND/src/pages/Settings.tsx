@@ -1,6 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import { Settings as SettingsIcon, Bell, Shield, Key, Moon, Sun, Save, Copy, Plus, Trash2 } from 'lucide-react';
-import axios from 'axios';
+import api from '../services/api';
 import { AuthContext } from '../context/AuthContext';
 
 const Settings = () => {
@@ -28,9 +28,7 @@ const Settings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const res = await axios.get('http://localhost:3001/api/settings', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await api.get('/api/settings');
         if (res.data) {
           setSettings(res.data);
         }
@@ -43,9 +41,7 @@ const Settings = () => {
 
   const saveSettings = async () => {
     try {
-      await axios.put('http://localhost:3001/api/settings', settings, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await api.put('/api/settings', settings);
       alert('Settings saved successfully!');
     } catch (err) {
       console.error('Failed to save settings', err);
