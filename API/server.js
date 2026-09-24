@@ -32,7 +32,7 @@ const app = express();
 // Frontend origin, used for CORS and for OAuth redirects back to the dashboard.
 // Defaults to the local Vite dev server; set FRONTEND_URL in production (e.g. your
 // Vercel URL).
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const FRONTEND_URL = (process.env.FRONTEND_URL || 'http://localhost:5173').trim().replace(/\/+$/, '');
 app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 app.use(express.json());
 

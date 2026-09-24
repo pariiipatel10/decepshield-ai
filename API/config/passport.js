@@ -6,7 +6,20 @@ const User = require('../models/User');
 
 // Base URL of this API server, used to build OAuth callback URLs. Defaults to
 // localhost for local dev; set BACKEND_URL in production (e.g. your Render URL).
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:3001';
+const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:3001').trim().replace(/\/+$/, '');
+
+// One-time startup diagnostic so OAuth misconfiguration is visible in Render logs
+// without ever printing full secrets.
+function mask(id) {
+  if (!id) return '(empty)';
+  if (id.length <= 8) return id[0] + '***';
+  return id.slice(0, 4) + '...' + id.slice(-4) + ` (len ${id.length})`;
+}
+console.log('[OAuth config] BACKEND_URL =', BACKEND_URL);
+console.log('[OAuth config] Google callback =', `${BACKEND_URL}/api/auth/google/callback`, '| clientID =', mask((process.env.GOOGLE_CLIENT_ID || '').trim()));
+console.log('[OAuth config] GitHub callback =', `${BACKEND_URL}/api/auth/github/callback`, '| clientID =', mask((process.env.GITHUB_CLIENT_ID || '').trim()));
+console.log('[OAuth config] Discord callback =', `${BACKEND_URL}/api/auth/discord/callback`, '| clientID =', mask((process.env.DISCORD_CLIENT_ID || '').trim()));
+
 
 passport.serializeUser((user, done) => {
   done(null, user.id);
@@ -65,8 +78,8 @@ const handleOAuthLogin = async (provider, profile, done) => {
 
 // Google Strategy
 passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    clientID: (process.env.GOOGLE_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.GOOGLE_CLIENT_SECRET || '').trim(),
     callbackURL: `${BACKEND_URL}/api/auth/google/callback`
   },
   (accessToken, refreshToken, profile, done) => handleOAuthLogin('google', profile, done)
@@ -74,8 +87,8 @@ passport.use(new GoogleStrategy({
 
 // GitHub Strategy
 passport.use(new GitHubStrategy({
-    clientID: process.env.GITHUB_CLIENT_ID,
-    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    clientID: (process.env.GITHUB_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.GITHUB_CLIENT_SECRET || '').trim(),
     callbackURL: `${BACKEND_URL}/api/auth/github/callback`
   },
   (accessToken, refreshToken, profile, done) => handleOAuthLogin('github', profile, done)
@@ -83,8 +96,8 @@ passport.use(new GitHubStrategy({
 
 // Discord Strategy
 passport.use(new DiscordStrategy({
-    clientID: process.env.DISCORD_CLIENT_ID,
-    clientSecret: process.env.DISCORD_CLIENT_SECRET,
+    clientID: (process.env.DISCORD_CLIENT_ID || '').trim(),
+    clientSecret: (process.env.DISCORD_CLIENT_SECRET || '').trim(),
     callbackURL: `${BACKEND_URL}/api/auth/discord/callback`,
     scope: ['identify', 'email']
   },
